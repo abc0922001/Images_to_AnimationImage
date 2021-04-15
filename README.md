@@ -1,8 +1,10 @@
 # Images_to_AnimationImage
 
 1. 把 make 資料夾裡面的圖片製作成 gif 圖
-2. 用 potplayer 的連續截圖功能，截 jpg 格式的圖片
-3. 裁圖方式：
+1. 用 potplayer 的連續截圖功能，截 jpg 格式的圖片
+1. 先執行 rename.ps1
+1. 再執行 make_image_to_gif.sh
+1. 裁圖方式：
 	1. FastStone Image Viewer
 	1. 使用剪裁編輯版，裁切要的大小跟畫面
 	1. 記下下面的 xy 軸與大小
