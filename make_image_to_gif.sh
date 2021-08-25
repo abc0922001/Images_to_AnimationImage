@@ -1,8 +1,6 @@
-input=".\make\Base%6d.jpg"
+frame=30
+giffps=30
+size=480
 today=`date +%Y%m%d%H%M%S`
-filters="scale=350:-1:flags=lanczos"
-pale="split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
-#make to webp
-
-ffmpeg -f image2 -framerate 30 -i "$input" -vf "$filters,$pale" -loop 0 -r 30 ./${today}.gif
+ffmpeg -f image2 -framerate ${frame} -i ".\make\Base%6d.jpg" -vf "scale=$size:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 -r ${giffps} ./${today}.gif
 #read -n 1 -p "Press any key to continue..."
