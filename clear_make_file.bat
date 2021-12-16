@@ -1,0 +1,1 @@
+del /s make\*.jpg
