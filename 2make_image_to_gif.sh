@@ -1,5 +1,5 @@
 frame=30
-giffps=30
+giffps=${frame}
 size=480
 today=`date +%Y%m%d%H%M%S`
 
