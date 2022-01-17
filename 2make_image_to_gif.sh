@@ -18,5 +18,5 @@ qualityParameter="lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"
 outputName=./"${today}".gif
 #========================
 
-".\ffmpeg.exe" -f image2 -framerate ${frame} -i ${sourceName} -vf "crop=${cutParameter},scale=${outputSize}:flags=${qualityParameter}" -loop 0 -r ${giffps} ${outputName}
+".\ffmpeg.exe" -f image2 -framerate ${frame} -i ${sourceName} -vf "crop=${cutParameter},scale=${outputSize}:flags=${qualityParameter}" -loop 0 -r ${giffps} "${outputName}"
 #read -n 1 -p "Press any key to continue..."
