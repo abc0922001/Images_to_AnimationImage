@@ -1,1 +1,1 @@
-del /s make\*.jpg
+del /s make\*.png

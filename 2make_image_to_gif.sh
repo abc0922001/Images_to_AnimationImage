@@ -12,7 +12,7 @@ giffps=${frame}
 today=$(date +%Y%m%d%H%M%S)
 
 #====ffmpeg parameter====
-sourceName=".\make\Base%6d.jpg"
+sourceName=".\make\Base%6d.png"
 cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
 outputSize=${size}:-1
 qualityParameter="lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
