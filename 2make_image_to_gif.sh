@@ -1,6 +1,6 @@
 #!/bin/sh
 
-z_contants=3.74
+z_contants=3.64
 w_cut=1920
 h_cut=1080
 x_cutpoint=0
@@ -11,13 +11,17 @@ gifspeed=1
 frame=30
 giffps=${frame}
 
+compression_ratio=$(echo "$z_contants" "$gifspeed" | awk '{print ($2<1)?$1*$2:$2/10+$1}')
+echo "compression_ratio is $compression_ratio"
 image_count=$(find ".\make" -maxdepth 1 -type f -printf . | wc -c)
+echo "image_count is $image_count"
 gif_length=$(echo "$image_count" "$frame" "$gifspeed" | awk '{print $1/$2/$3}')
+echo "gif_length is $gif_length"
 aspect_ratio=$(echo "$w_cut" "$h_cut" | awk '{print $1/$2}')
-tmp=$(echo "$gif_size" "$aspect_ratio" "$giffps" "$z_contants" "$gif_length" | awk '{print $1*8*$2/$3/$4/$5}')
+tmp=$(echo "$gif_size" "$aspect_ratio" "$giffps" "$compression_ratio" "$gif_length" | awk '{print $1*8*$2/$3/$4/$5}')
 square_root=$(echo "$tmp" | awk '{print sqrt($1)}')
 size=$(echo "$square_root" | awk '{print int($1*1024+0.5)}')
-echo "size of $size"
+echo "size is $size"
 today=$(date +%Y%m%d%H%M%S)
 
 #====ffmpeg parameter====
