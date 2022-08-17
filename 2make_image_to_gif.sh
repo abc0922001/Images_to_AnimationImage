@@ -1,6 +1,5 @@
 #!/bin/sh
 
-z_contants=3.64
 w_cut=1920
 h_cut=1080
 x_cutpoint=0
@@ -8,6 +7,7 @@ y_cutpoint=0
 Remark=""
 gif_size=6
 gifspeed=1
+z_contants=3.64
 frame=30
 giffps=${frame}
 
