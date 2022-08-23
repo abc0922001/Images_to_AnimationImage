@@ -5,13 +5,14 @@ h_cut=1080
 x_cutpoint=0
 y_cutpoint=0
 Remark=""
-gif_size=6
+size_factor=1
 gifspeed=1
+gif_size=6
 z_contants=3.64
 frame=30
 giffps=${frame}
 
-compression_ratio=$(echo "$z_contants" "$gifspeed" | awk '{print ($2<1)?$1*$2:$2/10+$1}')
+compression_ratio=$(echo "$z_contants" "$gifspeed" "$size_factor" | awk '{print ($2<1)?$1*$2/$3:($2/10+$1)/$3}')
 echo "compression_ratio is $compression_ratio"
 image_count=$(find ".\make" -maxdepth 1 -type f -printf . | wc -c)
 echo "image_count is $image_count"
