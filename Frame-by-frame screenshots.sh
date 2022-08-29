@@ -6,6 +6,7 @@ startTime="00:00:00"
 cutTime=3
 imageScale=1920:1080
 videoFormat=mp4
+videoPath=""
 #========================
 
-".\ffmpeg.exe" -ss "$startTime" -i "$filename"."$videoFormat" -t "$cutTime" -vf scale="$imageScale" -compression_level 0 -vsync passthrough -f image2 ".\make\image-%03d.png"
+".\ffmpeg.exe" -ss "$startTime" -i "$videoPath\\$filename.$videoFormat" -t "$cutTime" -vf scale="$imageScale" -compression_level 0 -vsync passthrough -f image2 ".\make\image-%03d.png"
