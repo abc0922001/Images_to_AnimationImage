@@ -8,11 +8,11 @@ Remark=""
 size_factor=1
 gifspeed=1
 gif_size=6
-z_contants=3.64
+z_contants=3.74
 frame=30
 giffps=${frame}
 
-compression_ratio=$(echo "$z_contants" "$gifspeed" "$size_factor" | awk '{print ($2<1)?$1*$2/$3:($2/10+$1)/$3}')
+compression_ratio=$(echo "$z_contants" "$size_factor" | awk '{print $1/$2}')
 echo "compression_ratio is $compression_ratio"
 image_count=$(find ".\make" -maxdepth 1 -type f -printf . | wc -c)
 echo "image_count is $image_count"
@@ -29,8 +29,9 @@ today=$(date +%Y%m%d%H%M%S)
 sourceName=".\make\Base%6d.png"
 cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
 scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
+minterpolateParameter="fps=${giffps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
 outputName=./"${today}${Remark}_${size}_${gifspeed}".gif
 #========================
 
-".\ffmpeg.exe" -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},scale=${scaleParameter}" -loop 0 -r ${giffps} "${outputName}"
+".\ffmpeg.exe" -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
 #read -n 1 -p "Press any key to continue..."
