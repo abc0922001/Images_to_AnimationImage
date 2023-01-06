@@ -29,7 +29,7 @@ today=$(date +%Y%m%d%H%M%S)
 sourceName=".\make\Base%6d.png"
 cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
 scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
-minterpolateParameter="fps=${giffps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
 outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".gif
 #========================
 
