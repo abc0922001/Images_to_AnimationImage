@@ -1,38 +1,57 @@
 #!/bin/sh
 
+# 設定圖片裁剪參數
 w_cut=1920
 h_cut=1080
 x_cutpoint=0
 y_cutpoint=0
+
+# 設定 GIF 參數
 Remark=""
-size_factor=1
 gifspeed=1
-gif_size=6
+size_factor=1
+gif_size=5.5
+
+# 設定其他參數
 z_contants=3.64
 frame=30
 giffps=${frame}
 
+# 計算壓縮參數
 compression_ratio=$(echo "$z_contants" "$gifspeed" "$size_factor" | awk '{print ($2<1)?$1/$3:($2/10+$1)/$3}')
-echo "compression_ratio is $compression_ratio"
+echo "壓縮參數為 $compression_ratio"
+
+# 計算圖片數量
 image_count=$(find ".\make" -maxdepth 1 -type f -printf . | wc -c)
-echo "image_count is $image_count"
+echo "圖片數量為 $image_count"
+
+# 計算 GIF 長度
 gif_length=$(echo "$image_count" "$frame" "$gifspeed" | awk '{print $1/$2/$3}')
-echo "gif_length is $gif_length"
+echo "GIF 長度為 $gif_length"
+
+# 計算 GIF 尺寸
 aspect_ratio=$(echo "$w_cut" "$h_cut" | awk '{print $1/$2}')
 tmp=$(echo "$gif_size" "$aspect_ratio" "$giffps" "$compression_ratio" "$gif_length" | awk '{print $1*8*$2/$3/$4/$5}')
 square_root=$(echo "$tmp" | awk '{print sqrt($1)}')
 size=$(echo "$square_root" | awk '{print int($1*1024+0.5)}')
-echo "size is $size"
+echo "GIF 尺寸為 $size"
 today=$(date +%Y%m%d%H%M%S)
 
 #====ffmpeg parameter====
 sourceName=".\make\Base%6d.png"
 cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
+
+# 設定動畫轉換參數，包括生成調色板和應用調色板
 scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
 #scaleParameter="${size}:-1:flags=lanczos,reverse,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
 minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+
+# 設定輸出檔名
 outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".gif
 #========================
 
-".\ffmpeg.exe" -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
+# 執行動畫轉換，加上 -stats 參數以輸出進度和資訊
+echo "開始轉換……"
+".\ffmpeg.exe" -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
+echo "轉換結束！"
 #read -n 1 -p "Press any key to continue..."
