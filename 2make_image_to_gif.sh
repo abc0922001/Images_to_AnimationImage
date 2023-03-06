@@ -52,7 +52,7 @@ outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".gif
 
 # 執行動畫轉換，加上 -stats 參數以輸出進度和資訊
 echo "開始轉換……"
-".\ffmpeg.exe" -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
+ffmpeg -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
 echo "轉換結束！"
 #read -n 1 -p "Press any key to continue..."
 
@@ -73,7 +73,7 @@ if [ "$(echo "${actual_size} < (${gif_size} * 0.95)" | awk '{print ($1 < $2)}')"
     # 設定動畫轉換參數，包括生成調色板和應用調色板
     scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
     echo "開始轉換……"
-    ".\ffmpeg.exe" -y -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
+    ffmpeg -y -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
     echo "轉換結束！"
 fi
 echo "實際大小為 ${actual_size}MB，GIF 大小為 ${gif_size}MB，尺寸因子為 ${size_factor}"
