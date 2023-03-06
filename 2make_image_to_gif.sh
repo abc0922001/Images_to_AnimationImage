@@ -55,3 +55,27 @@ echo "開始轉換……"
 ".\ffmpeg.exe" -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
 echo "轉換結束！"
 #read -n 1 -p "Press any key to continue..."
+
+# 如果最後輸出的檔案大小超出 gif_size 正負 5% 範圍，就調整 size_factor 參數
+actual_size=$(stat -c '%s' "${outputName}" | awk -F ',' '{printf "%.2f", $1/1024/1024}')
+echo "輸出檔案大小為: ${actual_size}MB"
+if [ "$(echo "${actual_size} < (${gif_size} * 0.95)" | awk '{print ($1 < $2)}')" -eq 1 ] || [ "$(echo "${actual_size} > (${gif_size} * 1.05)}" | awk '{print ($1 > $2)}')" -eq 1 ]; then
+    size_factor=$(echo "${gif_size} ${actual_size}" | awk '{print ($1/$2)}')
+    # 重新計算壓縮參數
+    compression_ratio=$(echo "$z_contants" "$gifspeed" "$size_factor" | awk '{print ($2<1)?$1/$3:($2/10+$1)/$3}')
+    echo "重新壓縮參數為 $compression_ratio"
+    # 重新計算 GIF 尺寸
+    aspect_ratio=$(echo "$w_cut" "$h_cut" | awk '{print $1/$2}')
+    tmp=$(echo "$gif_size" "$aspect_ratio" "$giffps" "$compression_ratio" "$gif_length" | awk '{print $1*8*$2/$3/$4/$5}')
+    square_root=$(echo "$tmp" | awk '{print sqrt($1)}')
+    size=$(echo "$square_root" | awk '{print int($1*1024+0.5)}')
+    echo "新的 GIF 尺寸為 $size"
+    # 設定動畫轉換參數，包括生成調色板和應用調色板
+    scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
+    echo "開始轉換……"
+    ".\ffmpeg.exe" -y -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
+    echo "轉換結束！"
+fi
+echo "實際大小為 ${actual_size}MB，GIF 大小為 ${gif_size}MB，尺寸因子為 ${size_factor}"
+
+#read -n 1 -p "Press any key to continue..."
