@@ -42,7 +42,7 @@ sourceName=".\make\Base%6d.png"
 cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
 
 # 設定動畫轉換參數，包括生成調色板和應用調色板
-scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
+scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen=stats_mode=diff:colors=256[p];[s1][p]paletteuse"
 #scaleParameter="${size}:-1:flags=lanczos,reverse,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
 minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
 
