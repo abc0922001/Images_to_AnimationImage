@@ -12,6 +12,9 @@ gifspeed=1
 size_factor=1
 gif_size=5.5
 
+# 設定是否倒帶
+reverse_gif=0  # 設為 1 以啟用倒帶；設為 0 以禁用倒帶
+
 # 設定其他參數
 z_contants=3.64
 frame=30
@@ -41,9 +44,15 @@ today=$(date +%Y%m%d%H%M%S)
 sourceName=".\make\Base%6d.png"
 cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
 
+# 根據 reverse_gif 值添加 reverse 過濾器
+if [ $reverse_gif -eq 1 ]; then
+    reverse_filter="reverse,"
+else
+    reverse_filter=""
+fi
+
 # 設定動畫轉換參數，包括生成調色板和應用調色板
-scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
-#scaleParameter="${size}:-1:flags=lanczos,reverse,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
+scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
 minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
 
 # 設定輸出檔名
@@ -71,7 +80,7 @@ if [ "$(echo "${actual_size} < (${gif_size} * 0.95)" | awk '{print ($1 < $2)}')"
     size=$(echo "$square_root" | awk '{print int($1*1024+0.5)}')
     echo "新的 GIF 尺寸為 $size"
     # 設定動畫轉換參數，包括生成調色板和應用調色板
-    scaleParameter="${size}:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
+    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
     echo "開始轉換……"
     ffmpeg -y -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
     echo "轉換結束！"
