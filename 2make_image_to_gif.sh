@@ -81,6 +81,8 @@ if [ "$(echo "${actual_size} < (${gif_size} * 0.95)" | awk '{print ($1 < $2)}')"
     echo "新的 GIF 尺寸為 $size"
     # 設定動畫轉換參數，包括生成調色板和應用調色板
     scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
+    # 重新設定輸出檔名
+    outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".gif
     echo "開始轉換……"
     ffmpeg -y -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
     echo "轉換結束！"
