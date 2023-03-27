@@ -68,7 +68,7 @@ echo "轉換結束！"
 # 如果最後輸出的檔案大小超出 gif_size 正負 5% 範圍，就調整 size_factor 參數
 actual_size=$(stat -c '%s' "${outputName}" | awk -F ',' '{printf "%.2f", $1/1024/1024}')
 echo "輸出檔案大小為: ${actual_size}MB"
-if [ "$(echo "${actual_size} < (${gif_size} * 0.95)" | awk '{print ($1 < $2)}')" -eq 1 ] || [ "$(echo "${actual_size} > (${gif_size} * 1.05)}" | awk '{print ($1 > $2)}')" -eq 1 ]; then
+if [ "$(echo "${actual_size}" "${gif_size}" | awk '{print ($1 < $2 * 0.95)}')" -eq 1 ] || [ "$(echo "${actual_size}" "${gif_size}" | awk '{print ($1 > $2 * 1.04)}')" -eq 1 ]; then
     size_factor=$(echo "${gif_size} ${actual_size}" | awk '{print ($1/$2)}')
     # 重新計算壓縮參數
     compression_ratio=$(echo "$z_contants" "$gifspeed" "$size_factor" | awk '{print ($2<1)?$1/$3:($2/10+$1)/$3}')
