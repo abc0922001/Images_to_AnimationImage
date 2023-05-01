@@ -10,7 +10,7 @@ y_cutpoint=0
 Remark=""
 gifspeed=1
 size_factor=1
-gif_size=5.5
+gif_size=8
 
 # 設定是否倒帶
 reverse_gif=0  # 設為 1 以啟用倒帶；設為 0 以禁用倒帶
