@@ -61,7 +61,7 @@ outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".gif
 
 # 執行動畫轉換，加上 -stats 參數以輸出進度和資訊
 echo "開始轉換……"
-ffmpeg -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
+ffmpeg -hide_banner -loglevel error -f image2 -framerate ${frame} -i ${sourceName} -vf "setpts=(1/${gifspeed})*PTS,crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
 echo "轉換結束！"
 #read -n 1 -p "Press any key to continue..."
 
@@ -84,7 +84,7 @@ if [ "$(echo "${actual_size}" "${gif_size}" | awk '{print ($1 < $2 * 0.95)}')" -
     # 重新設定輸出檔名
     outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".gif
     echo "開始轉換……"
-    ffmpeg -y -hide_banner -loglevel error -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
+    ffmpeg -hide_banner -loglevel error -f image2 -framerate ${frame} -i ${sourceName} -vf "setpts=(1/${gifspeed})*PTS,crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
     echo "轉換結束！"
 fi
 echo "實際大小為 ${actual_size}MB，GIF 大小為 ${gif_size}MB，尺寸因子為 ${size_factor}"
