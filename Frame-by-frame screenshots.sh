@@ -7,6 +7,7 @@ cutTime=3
 imageScale=1920:1080
 videoFormat=mp4
 videoPath=""
+#videoFormat=webm
 #========================
 
-ffmpeg -ss "$startTime" -i "$videoPath\\$filename.$videoFormat" -t "$cutTime" -vf scale="$imageScale" -pix_fmt rgb24 -preset ultrafast -crf 0 -vsync passthrough -f image2 ".\make\image-%03d.png"
+ffmpeg -ss "$startTime" -i "$videoPath\\$filename.$videoFormat" -t "$cutTime" -s "$imageScale" -f image2 ".\make\image-%03d.png"
