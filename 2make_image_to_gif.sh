@@ -49,6 +49,12 @@ calculate_compression_ratio() {
 }
 
 create_gif() {
+    #檢查 size 是否大於 w_cut
+    if [ "$size" -gt $w_cut ]; then
+        size=$w_cut
+        echo "Size 超過 w_cut，使用 $size"
+    fi
+
     # 設定動畫轉換參數
     scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
     minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
