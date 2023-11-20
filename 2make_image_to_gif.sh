@@ -49,12 +49,6 @@ calculate_compression_ratio() {
 }
 
 create_gif() {
-    #檢查 size 是否大於 w_cut
-    if [ "$size" -gt $w_cut ]; then
-        size=$w_cut
-        echo "Size 超過 w_cut，使用 $size"
-    fi
-
     # 設定動畫轉換參數
     scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
     minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
@@ -78,6 +72,15 @@ fi
 # 調用函數計算壓縮比率和尺寸
 calculate_compression_ratio
 
+#檢查 size 是否大於 w_cut
+if [ "$size" -gt $w_cut ]; then
+    size=$w_cut
+    echo "Size 超過 w_cut，使用 $size"
+    # 調用函數創建 GIF
+    create_gif
+    exit 1
+fi
+
 # 調用函數創建 GIF
 create_gif
 
@@ -99,6 +102,12 @@ if awk -v actual="$actual_size" -v min="$min_size" -v max="$max_size" 'BEGIN{exi
 
     # 調用函數計算壓縮比率和尺寸
     calculate_compression_ratio
+
+    #檢查 size 是否大於 w_cut
+    if [ "$size" -gt $w_cut ]; then
+        size=$w_cut
+        echo "Size 超過 w_cut，使用 $size"  
+    fi
     
     # 調用函數創建 GIF
     create_gif
