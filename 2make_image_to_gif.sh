@@ -50,7 +50,7 @@ calculate_compression_ratio() {
 
 create_gif() {
     # 設定動畫轉換參數
-    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}"
+    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}split[s0][s1];[s0]palettegen=stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
     minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
 
     # 設定輸出檔名
@@ -58,7 +58,7 @@ create_gif() {
 
     # 執行動畫轉換
     echo "開始轉換……"
-    ffmpeg -hide_banner -loglevel error -f image2 -framerate ${frame} -i ${sourceName} -vf "setpts=(1/${gifspeed})*PTS,crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -loop 0 "${outputName}"
+    ffmpeg -hide_banner -loglevel error -f image2 -framerate ${frame} -i ${sourceName} -vf "format=rgb24,setpts=(1/${gifspeed})*PTS,crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -q:v 2 -loop 0 "${outputName}"
     echo "轉換結束！"
 }
 
