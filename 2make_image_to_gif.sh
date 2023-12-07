@@ -1,117 +1,81 @@
 #!/bin/sh
 
-# 設定圖片裁剪參數
-w_cut=1920
-h_cut=1080
-x_cutpoint=0
-y_cutpoint=0
+# 初始化參數設定
+initialize_parameters() {
+    local_width=1920
+    local_height=1080
+    crop_x=0
+    crop_y=0
 
-# 設定 GIF 參數
-Remark=""
-gifspeed=1
-size_factor=1
-#Discord max 25MB
-gif_size=15
+    gif_remark=""
+    gif_speed=1
+    size_factor=1
+    max_gif_size_mb=15
+    reverse_gif=0
 
-# 設定是否倒帶
-# 設為 1 以啟用倒帶；設為 0 以禁用倒帶
-reverse_gif=0
-
-# 設定其他參數
-z_contants=3.64
-frame=30
-giffps=${frame}
-today=$(date +%Y%m%d%H%M%S)
-
-# 計算圖片數量
-image_count=$(find ".\make" -maxdepth 1 -type f -printf . | wc -c)
-echo "圖片數量為 $image_count"
-
-# 計算 GIF 長度
-gif_length=$(echo "$image_count" "$frame" "$gifspeed" | awk '{print $1/$2/$3}')
-echo "GIF 長度為 $gif_length"
-
-#====ffmpeg parameter====
-sourceName=".\make\Base%6d.png"
-cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
-
-calculate_compression_ratio() {
-    # 計算壓縮參數
-    compression_ratio=$(echo "$z_contants" "$gifspeed" "$size_factor" | awk '{print ($2<1)?$1/$3:($2/10+$1)/$3}')
-    echo "壓縮參數為 $compression_ratio"
-
-    # 計算 GIF 尺寸
-    aspect_ratio=$(echo "$w_cut" "$h_cut" | awk '{print $1/$2}')
-    tmp=$(echo "$gif_size" "$aspect_ratio" "$giffps" "$compression_ratio" "$gif_length" | awk '{print $1*8*$2/$3/$4/$5}')
-    square_root=$(echo "$tmp" | awk '{print sqrt($1)}')
-    size=$(echo "$square_root" | awk '{print int($1*1024+0.5)}')
-    echo "GIF 尺寸為 $size"
+    z_constants=3.64
+    frame_rate=30
+    today=$(date +%Y%m%d%H%M%S)
 }
 
+# 計算影像數量和 GIF 長度
+calculate_image_count_and_gif_length() {
+    image_count=$(find ".\make" -maxdepth 1 -type f -printf . | wc -c)
+    echo "圖片數量為 ${image_count}"
+
+    gif_length=$(echo "${image_count} ${frame_rate} ${gif_speed}" | awk '{print $1/$2/$3}')
+    echo "GIF 長度為 ${gif_length}"
+}
+
+# 計算壓縮比率和 GIF 尺寸
+calculate_compression_and_size() {
+    compression_ratio=$(echo "${z_constants} ${gif_speed} ${size_factor}" | awk '{print ($2<1)?$1/$3:($2/10+$1)/$3}')
+    echo "壓縮參數為 ${compression_ratio}"
+
+    aspect_ratio=$(echo "${local_width} ${local_height}" | awk '{print $1/$2}')
+    tmp=$(echo "${max_gif_size_mb} ${aspect_ratio} ${frame_rate} ${compression_ratio} ${gif_length}" | awk '{print $1*8*$2/$3/$4/$5}')
+    square_root=$(echo "${tmp}" | awk '{print sqrt($1)}')
+    gif_size=$(echo "${square_root}" | awk '{print int($1*1024+0.5)}')
+    echo "GIF 尺寸為 ${gif_size}"
+}
+
+# 創建 GIF
 create_gif() {
-    # 設定動畫轉換參數
-    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}split[s0][s1];[s0]palettegen=reserve_transparent=0[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
-    minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+    local scale_filter="scale=${gif_size}:-1:flags=lanczos"
+    local palette="palettegen=reserve_transparent=0[p];[s1][p]paletteuse=dither=bayer:bayer_scale=3"
+    local minterpolate_filter="minterpolate='fps=${frame_rate}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1'"
+    local crop_filter="crop=${local_width}:${local_height}:${crop_x}:${crop_y}"
+    local reverse_filter=$([ ${reverse_gif} -eq 1 ] && echo "reverse," || echo "")
 
-    # 設定輸出檔名
-    outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".gif
+    output_name="./${today}_${gif_size}_${gif_speed}_${gif_length}s_${gif_remark}.gif"
 
-    # 執行動畫轉換
     echo "開始轉換……"
-    ffmpeg -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "format=rgb24,crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -q:v 2 -loop 0 "${outputName}"
+    ffmpeg -f image2 -framerate ${frame_rate}*${gif_speed} -i .\make\Base%6d.png \
+        -vf "format=rgb24,${crop_filter},${minterpolate_filter},${reverse_filter}split[s0][s1];[s0]${palette},${scale_filter}" \
+        -q:v 2 -loop 0 "${output_name}"
     echo "轉換結束！"
 }
 
-# 根據 reverse_gif 值添加 reverse 過濾器
-if [ $reverse_gif -eq 1 ]; then
-    reverse_filter="reverse,"
-else
-    reverse_filter=""
-fi
+# 檢查並調整 GIF 尺寸
+check_and_adjust_gif_size() {
+    actual_size_mb=$(stat -c '%s' "${output_name}" | awk '{printf "%.2f", $1/1024/1024}')
+    echo "輸出檔案大小為: ${actual_size_mb}MB"
 
-# 調用函數計算壓縮比率和尺寸
-calculate_compression_ratio
+    min_size=$(awk -v size="${max_gif_size_mb}" 'BEGIN{print size * 0.95}')
+    max_size=$(awk -v size="${max_gif_size_mb}" 'BEGIN{print size * 1.05}')
 
-#檢查 size 是否大於 w_cut
-if [ "$size" -gt $w_cut ]; then
-    size=$w_cut
-    echo "Size 超過 w_cut，使用 $size"
-    # 調用函數創建 GIF
-    create_gif
-    exit 1
-fi
-
-# 調用函數創建 GIF
-create_gif
-
-# 獲取實際大小（單位：MB）
-actual_size=$(stat -c '%s' "${outputName}" | awk '{printf "%.2f", $1/1024/1024}')
-
-# 打印實際大小
-echo "輸出檔案大小為: ${actual_size}MB"
-
-# 利用 awk 進行比較，檢查是否需要調整 size_factor
-min_size=$(awk -v size="$gif_size" 'BEGIN{print size * 0.95}')
-max_size=$(awk -v size="$gif_size" 'BEGIN{print size * 1.05}')
-
-if awk -v actual="$actual_size" -v min="$min_size" -v max="$max_size" 'BEGIN{exit !(actual < min || actual > max)}'; then
-    # 重新計算壓縮參數
-    size_factor=$(echo "${gif_size} ${actual_size}" | awk '{print ($1/$2)}')
-
-    echo "尺寸因子為 ${size_factor}"
-
-    # 調用函數計算壓縮比率和尺寸
-    calculate_compression_ratio
-
-    #檢查 size 是否大於 w_cut
-    if [ "$size" -gt $w_cut ]; then
-        size=$w_cut
-        echo "Size 超過 w_cut，使用 $size"  
+    if awk -v actual="${actual_size_mb}" -v min="${min_size}" -v max="${max_size}" 'BEGIN{exit !(actual < min || actual > max)}'; then
+        size_factor=$(echo "${max_gif_size_mb} ${actual_size_mb}" | awk '{print ($1/$2)}')
+        echo "尺寸因子調整為 ${size_factor}"
+        calculate_compression_and_size
+        create_gif
     fi
-    
-    # 調用函數創建 GIF
-    create_gif
-fi
-echo "實際大小為 ${actual_size}MB，GIF 大小為 ${gif_size}MB"
+}
 
-#read -n 1 -p "Press any key to continue..."
+# 主程式開始
+initialize_parameters
+calculate_image_count_and_gif_length
+calculate_compression_and_size
+create_gif
+check_and_adjust_gif_size
+echo "實際大小為 ${actual_size_mb}MB，GIF 大小為 ${max_gif_size_mb}MB"
