@@ -10,8 +10,8 @@ y_cutpoint=0
 Remark=""
 gifspeed=1
 size_factor=1
-#Discord max 25MB
-gif_size=10
+#Discord max 10MB
+gif_size=8
 
 # 設定是否倒帶
 # 設為 1 以啟用倒帶；設為 0 以禁用倒帶
