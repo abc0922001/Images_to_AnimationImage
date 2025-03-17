@@ -20,6 +20,7 @@ reverse_gif=0
 # 設定其他參數
 z_contants=3.64
 frame=30
+desired_fps=30
 giffps=${frame}
 today=$(date +%Y%m%d%H%M%S)
 
@@ -30,6 +31,9 @@ echo "圖片數量為 $image_count"
 # 計算 GIF 長度
 gif_length=$(echo "$image_count" "$frame" "$gifspeed" | awk '{print $1/$2/$3}')
 echo "GIF 長度為 $gif_length"
+
+# 自動計算校正係數
+correction=$(echo "$desired_fps" "$frame" | awk '{print $1/$2}')
 
 #====ffmpeg parameter====
 sourceName=".\make\Base%6d.png"
@@ -58,7 +62,7 @@ create_gif() {
 
     # 執行動畫轉換
     echo "開始轉換……"
-    ffmpeg -threads 8 -loglevel info -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "format=rgb24,crop=${cutParameter},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -q:v 2 -loop 0 "${outputName}"
+    ffmpeg -threads 8 -loglevel info -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "format=rgb24,crop=${cutParameter},setpts=PTS*${correction},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -q:v 2 -loop 0 "${outputName}"
     echo "轉換結束！"
 }
 
