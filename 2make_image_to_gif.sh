@@ -95,8 +95,8 @@ actual_size=$(stat -c '%s' "${outputName}" | awk '{printf "%.2f", $1/1024/1024}'
 echo "輸出檔案大小為: ${actual_size}MB"
 
 # 利用 awk 進行比較，檢查是否需要調整 size_factor
-min_size=$(awk -v size="$gif_size" 'BEGIN{print size * 0.95}')
-max_size=$(awk -v size="$gif_size" 'BEGIN{print size * 1.05}')
+min_size=$(awk -v size="$gif_size" 'BEGIN{print size * 0.96}')
+max_size=$(awk -v size="$gif_size" 'BEGIN{print size * 1.04}')
 
 if awk -v actual="$actual_size" -v min="$min_size" -v max="$max_size" 'BEGIN{exit !(actual < min || actual > max)}'; then
     # 重新計算壓縮參數
