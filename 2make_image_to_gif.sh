@@ -62,7 +62,7 @@ create_gif() {
 
     # 執行動畫轉換
     echo "開始轉換……"
-    ffmpeg -threads 8 -loglevel info -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "format=rgb24,crop=${cutParameter},setpts=PTS*${correction},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -q:v 2 -loop 0 "${outputName}"
+    ffmpeg -threads 16 -loglevel info -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "format=rgb24,crop=${cutParameter},setpts=PTS*${correction},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -q:v 2 -loop 0 "${outputName}"
     echo "轉換結束！"
 }
 
