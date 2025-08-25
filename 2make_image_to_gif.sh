@@ -18,7 +18,7 @@ gif_size=8
 reverse_gif=0
 
 # 設定其他參數
-z_contants=3.64
+z_contants=2
 frame=30
 desired_fps=30
 giffps=${frame}
@@ -54,15 +54,18 @@ calculate_compression_ratio() {
 
 create_gif() {
     # 設定動畫轉換參數
-    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}split[s0][s1];[s0]palettegen=reserve_transparent=0[p];[s1][p]paletteuse"
+    scaleParameter="${size}:-1:flags=lanczos"
     minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
 
     # 設定輸出檔名
-    outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".gif
+    outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".webp
 
     # 執行動畫轉換
     echo "開始轉換……"
-    ffmpeg -threads 16 -loglevel info -f image2 -framerate ${frame}*${gifspeed} -i ${sourceName} -vf "format=rgb24,crop=${cutParameter},setpts=PTS*${correction},minterpolate=${minterpolateParameter},scale=${scaleParameter}" -q:v 2 -loop 0 "${outputName}"
+    ffmpeg -f image2 -framerate ${frame}*${gifspeed} \
+        -i ${sourceName} \
+        -vf "crop=${cutParameter},setpts=PTS*${correction},minterpolate=${minterpolateParameter},scale=${scaleParameter}" \
+        -q:v 100 -loop 0 "${outputName}"
     echo "轉換結束！"
 }
 
