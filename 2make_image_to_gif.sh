@@ -54,7 +54,7 @@ calculate_compression_ratio() {
 
 create_gif() {
     # 設定動畫轉換參數
-    scaleParameter="${size}:-1:flags=lanczos"
+    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}"
     minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
 
     # 設定輸出檔名
