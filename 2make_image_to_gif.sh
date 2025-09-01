@@ -18,7 +18,7 @@ gif_size=8
 reverse_gif=0
 
 # 設定其他參數
-z_contants=2
+z_contants=1
 frame=30
 desired_fps=30
 giffps=${frame}
