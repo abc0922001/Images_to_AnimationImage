@@ -1,126 +1,216 @@
 #!/bin/sh
 
-# 設定圖片裁剪參數
+# ==========================================
+#  WebP 自動化轉檔腳本 (Git Bash 相容修正版)
+#  修正：移除 bc 依賴，全改用 awk 運算
+# ==========================================
+
+# 1. 基礎參數設定
 w_cut=1920
 h_cut=1080
 x_cutpoint=0
 y_cutpoint=0
 
-# 設定 GIF 參數
 Remark=""
-gifspeed=1
-size_factor=1
-#Discord max 10MB
+# Discord max limit (10MB)
 gif_size=8
 
-# 設定是否倒帶
-# 設為 1 以啟用倒帶；設為 0 以禁用倒帶
+# 動畫控制
+gifspeed=1
 reverse_gif=0
 
-# 設定其他參數
-z_contants=0.25
+# FPS 設定
 frame=30
 desired_fps=30
-giffps=${frame}
 today=$(date +%Y%m%d%H%M%S)
 
+# 2. 核心演算法參數
+# 針對 -q:v 85
+z_contants=0.25
+quality_val=85
+
+# 3. 檔案環境準備
+source_dir="./make"
+# Windows Git Bash 路徑修正
+source_pattern="${source_dir}/Base%6d.png"
+
 # 計算圖片數量
-image_count=$(find ".\make" -maxdepth 1 -type f -printf . | wc -c)
-echo "圖片數量為 $image_count"
+image_count=$(find "${source_dir}" -maxdepth 1 -type f -name "*.png" | wc -l)
+
+if [ "$image_count" -eq 0 ]; then
+    echo "錯誤：在 ${source_dir} 找不到 .png 圖片。"
+    exit 1
+fi
+echo "圖片數量為: $image_count"
+
+# ==== 純 awk 計算區域 (取代 bc) ====
 
 # 計算 GIF 長度
-gif_length=$(echo "$image_count" "$frame" "$gifspeed" | awk '{print $1/$2/$3}')
-echo "GIF 長度為 $gif_length"
+gif_length=$(awk -v c="$image_count" -v f="$frame" -v s="$gifspeed" 'BEGIN {printf "%.2f", c/f/s}')
 
-# 自動計算校正係數
-correction=$(echo "$desired_fps" "$frame" | awk '{print $1/$2}')
+# 計算校正係數
+correction=$(awk -v d="$desired_fps" -v f="$frame" 'BEGIN {print d/f}')
 
-#====ffmpeg parameter====
-sourceName=".\make\Base%6d.png"
 cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
 
-calculate_compression_ratio() {
-    # 計算壓縮參數
-    compression_ratio=$(echo "$z_contants" "$gifspeed" "$size_factor" | awk '{print ($2<1)?$1/$3:($2/10+$1)/$3}')
-    echo "壓縮參數為 $compression_ratio"
+# 4. 濾鏡邏輯
 
-    # 計算 GIF 尺寸
-    aspect_ratio=$(echo "$w_cut" "$h_cut" | awk '{print $1/$2}')
-    tmp=$(echo "$gif_size" "$aspect_ratio" "$giffps" "$compression_ratio" "$gif_length" | awk '{print $1*8*$2/$3/$4/$5}')
-    square_root=$(echo "$tmp" | awk '{print sqrt($1)}')
-    size=$(echo "$square_root" | awk '{print int($1*1024+0.5)}')
-    echo "GIF 尺寸為 $size"
-}
-
-create_gif() {
-    # 設定動畫轉換參數
-    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}"
-    minterpolateParameter="fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
-
-    # 設定輸出檔名
-    outputName=./"${today}_${size}_${gifspeed}_${gif_length}s_${Remark}".webp
-
-    # 執行動畫轉換
-    echo "開始轉換……"
-    ffmpeg -f image2 -framerate ${frame}*${gifspeed} \
-        -i ${sourceName} \
-        -vf "crop=${cutParameter},setpts=PTS*${correction},minterpolate=${minterpolateParameter},scale=${scaleParameter}" \
-        -lossless 0 -q:v 85 \
-        -loop 0 \
-        "${outputName}"
-    echo "轉換結束！"
-}
-
-# 根據 reverse_gif 值添加 reverse 過濾器
-if [ $reverse_gif -eq 1 ]; then
+# 倒帶
+if [ "$reverse_gif" -eq 1 ]; then
     reverse_filter="reverse,"
 else
     reverse_filter=""
 fi
 
-# 調用函數計算壓縮比率和尺寸
-calculate_compression_ratio
+# 補幀 (使用 awk 判斷 float)
+is_slow_motion=$(awk -v s="$gifspeed" 'BEGIN {print (s < 1) ? 1 : 0}')
 
-#檢查 size 是否大於 w_cut
-if [ "$size" -gt $w_cut ]; then
-    size=$w_cut
-    echo "Size 超過 w_cut，使用 $size"
-    # 調用函數創建 GIF
-    create_gif
+if [ "$is_slow_motion" -eq 1 ]; then
+    echo "偵測到慢動作 ($gifspeed)，啟用補幀..."
+    minterpolate_filter="minterpolate=fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,"
+else
+    minterpolate_filter=""
+fi
+
+# 5. 函數定義
+
+calculate_target_width() {
+    # 計算 BPP 與 目標寬度 (全 awk)
+    # 邏輯：Width = sqrt( (TargetMB * 8388608) / (Aspect * TotalFrames * BPP) )
+
+    size=$(awk -v z="$z_contants" -v gs="$gifspeed" -v target="$gif_size" \
+               -v wc="$w_cut" -v hc="$h_cut" -v fr="$frame" -v gl="$gif_length" \
+    'BEGIN {
+        # 1. 調整 BPP
+        bpp = (gs > 1) ? z * 1.15 : z;
+        print "使用 BPP 係數: " bpp > "/dev/stderr";
+
+        # 2. 計算總幀數與比例
+        total_frames = fr * gs * gl;
+        aspect = wc / hc;
+
+        # 3. 計算目標寬度
+        if (total_frames > 0 && aspect > 0 && bpp > 0) {
+            tmp_val = (target * 8388608) / (aspect * total_frames * bpp);
+            calc_w = int(sqrt(tmp_val));
+        } else {
+            calc_w = wc; # 避免除以零
+        }
+
+        # 4. 安全檢查
+        if (calc_w > wc) {
+            print wc;
+        } else {
+            print calc_w;
+        }
+    }')
+
+    echo "預估目標寬度: $size px"
+}
+
+create_webp() {
+    outputName="./${today}_${size}_${gifspeed}_${gif_length}s_${Remark}.webp"
+
+    # 計算最終 framerate (使用 awk)
+    final_fps=$(awk -v f="$frame" -v s="$gifspeed" 'BEGIN {print f * s}')
+
+    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}"
+
+    echo "----------------------------------------"
+    echo "開始轉換... (FPS: $final_fps)"
+    echo "----------------------------------------"
+
+    ffmpeg -y -f image2 -framerate "$final_fps" \
+        -i "${source_pattern}" \
+        -vf "crop=${cutParameter},${minterpolate_filter}setpts=PTS*${correction},scale=${scaleParameter}" \
+        -lossless 0 -q:v ${quality_val} \
+        -pix_fmt yuva420p \
+        -loop 0 \
+        -hide_banner -loglevel warning \
+        "${outputName}"
+
+    echo "轉換結束。"
+}
+
+# 6. 主執行流程
+
+calculate_target_width
+create_webp
+
+# 檢查結果
+if [ -f "${outputName}" ]; then
+    actual_size=$(stat -c '%s' "${outputName}" | awk '{printf "%.2f", $1/1024/1024}')
+    echo "實際大小: ${actual_size} MB (目標: ${gif_size} MB)"
+else
+    echo "錯誤：輸出檔案不存在，FFmpeg 執行失敗。"
     exit 1
 fi
 
-# 調用函數創建 GIF
-create_gif
+# 7. 二次校正 (智慧攔截版)
+# 邏輯優化：
+# 1. 如果檔案太大 -> 必須重跑 (Downscale)
+# 2. 如果檔案太小 -> 檢查是否已達解析度上限 (w_cut)
+#    - 已達上限：不重跑 (避免無效運算)
+#    - 未達上限：重跑 (Upscale)
 
-# 獲取實際大小（單位：MB）
-actual_size=$(stat -c '%s' "${outputName}" | awk '{printf "%.2f", $1/1024/1024}')
+needs_retry=$(awk -v act="$actual_size" -v target="$gif_size" \
+              -v cur_w="$size" -v max_w="$w_cut" \
+              'BEGIN {
+                  min = target * 0.90;
+                  max = target * 1.02;
 
-# 打印實際大小
-echo "輸出檔案大小為: ${actual_size}MB"
+                  # 情況 1: 檔案太大 (必須縮小)
+                  if (act > max) {
+                      print 1;
+                      exit;
+                  }
 
-# 利用 awk 進行比較，檢查是否需要調整 size_factor
-min_size=$(awk -v size="$gif_size" 'BEGIN{print size * 0.96}')
-max_size=$(awk -v size="$gif_size" 'BEGIN{print size * 1.04}')
+                  # 情況 2: 檔案太小
+                  if (act < min) {
+                      # 關鍵判斷：如果已經是最大解析度，重跑也沒用，直接放棄
+                      if (cur_w >= max_w) {
+                          print 0;
+                      } else {
+                          print 1;
+                      }
+                      exit;
+                  }
 
-if awk -v actual="$actual_size" -v min="$min_size" -v max="$max_size" 'BEGIN{exit !(actual < min || actual > max)}'; then
-    # 重新計算壓縮參數
-    size_factor=$(echo "${gif_size} ${actual_size}" | awk '{print ($1/$2)}')
+                  # 情況 3: 大小剛好
+                  print 0;
+              }')
 
-    echo "尺寸因子為 ${size_factor}"
+if [ "$needs_retry" -eq 1 ]; then
+    echo "大小不符預期，進行修正..."
 
-    # 調用函數計算壓縮比率和尺寸
-    calculate_compression_ratio
+    # 計算新尺寸 (全 awk)
+    size=$(awk -v target="$gif_size" -v actual="$actual_size" -v current_w="$size" -v max_w="$w_cut" \
+    'BEGIN {
+        factor = sqrt(target / actual);
+        # 這裡有個細節：如果是縮小(太大)，我們乘 0.98 確保過關
+        # 如果是放大(太小)，我們乘 1.0 盡量填滿，因為反正有 max_w 擋著
+        if (factor < 1) {
+            new_w = int(current_w * factor * 0.98);
+        } else {
+            new_w = int(current_w * factor);
+        }
 
-    #檢查 size 是否大於 w_cut
-    if [ "$size" -gt $w_cut ]; then
-        size=$w_cut
-        echo "Size 超過 w_cut，使用 $size"  
+        if (new_w > max_w) new_w = max_w;
+        print new_w;
+    }')
+
+    echo "重試寬度: $size px"
+    create_webp
+
+    final_size=$(stat -c '%s' "${outputName}" | awk '{printf "%.2f", $1/1024/1024}')
+    echo "最終大小: ${final_size} MB"
+else
+    # 這裡可以告訴使用者為什麼不重跑
+    if [ $(awk -v a="$actual_size" -v m="$w_cut" -v c="$size" 'BEGIN{print (a < 7.0 && c >= m) ? 1 : 0}') -eq 1 ]; then
+        echo "雖然檔案較小 ($actual_size MB)，但解析度已達上限 ($w_cut px)，不再重試。"
+    else
+        echo "大小符合範圍 ($actual_size MB)，無需重試。"
     fi
-    
-    # 調用函數創建 GIF
-    create_gif
 fi
-echo "實際大小為 ${actual_size}MB，GIF 大小為 ${gif_size}MB"
 
-#read -n 1 -p "Press any key to continue..."
+exit 0
