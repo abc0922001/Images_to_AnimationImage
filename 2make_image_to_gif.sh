@@ -18,7 +18,7 @@ gif_size=8
 reverse_gif=0
 
 # 設定其他參數
-z_contants=1
+z_contants=0.25
 frame=30
 desired_fps=30
 giffps=${frame}
@@ -65,7 +65,9 @@ create_gif() {
     ffmpeg -f image2 -framerate ${frame}*${gifspeed} \
         -i ${sourceName} \
         -vf "crop=${cutParameter},setpts=PTS*${correction},minterpolate=${minterpolateParameter},scale=${scaleParameter}" \
-        -q:v 100 -loop 0 "${outputName}"
+        -lossless 0 -q:v 85 \
+        -loop 0 \
+        "${outputName}"
     echo "轉換結束！"
 }
 
