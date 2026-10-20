@@ -150,7 +150,7 @@ create_webp() {
     echo "開始轉換... (寬度: $size, FPS: $final_fps)"
     echo "----------------------------------------"
 
-    ffmpeg -y -f image2 -framerate "$final_fps" \
+    nice -n -15 ffmpeg -y -f image2 -framerate "$final_fps" \
         -i "${source_pattern}" \
         -vf "crop=${cutParameter},${minterpolate_filter}setpts=PTS*${correction},scale=${scaleParameter}" \
         -lossless 0 -q:v ${quality_val} \
