@@ -29,8 +29,10 @@ gifspeed=1
 reverse_gif=0
 
 # FPS 設定
+# frame: 原始影片擷取幀率 (例如 29.97、30 或 60)
 frame=30
-desired_fps=30
+# target_fps: 目標輸出幀率上限 (避免 60fps 素材耗用雙倍檔案大小預算)
+target_fps=30
 today=$(date +%Y%m%d%H%M%S)
 
 # ==== 2. 演算法核心參數 ====
@@ -42,7 +44,7 @@ z_contants=0.25
 
 # WebP 畫質參數 (0-100)
 # 選擇 85 而非 100 的原因：WebP 在 80-85 為甜蜜點，100 會導致檔案體積暴增但肉眼差異極小。
-quality_val=90
+quality_val=85
 
 # ==== 3. 檔案與環境準備 ====
 
@@ -61,36 +63,47 @@ echo "圖片數量為: $image_count"
 
 # ==== 4. 基礎數值運算 (使用 awk 取代 bc) ====
 
-# 計算影片總長度 (秒)
-gif_length=$(awk -v c="$image_count" -v f="$frame" -v s="$gifspeed" 'BEGIN {printf "%.2f", c/f/s}')
+# 計算有效輸入 FPS (原始幀率 * 播放速度倍率)
+input_fps=$(awk -v f="$frame" -v s="$gifspeed" 'BEGIN {print f * s}')
 
-# 計算 PTS 校正係數 (用於控制播放速度)
-correction=$(awk -v d="$desired_fps" -v f="$frame" 'BEGIN {print d/f}')
+# 計算影片總長度 (秒)
+gif_length=$(awk -v c="$image_count" -v infps="$input_fps" 'BEGIN {printf "%.2f", c/infps}')
 
 # 設定裁切字串
 cutParameter=${w_cut}:${h_cut}:${x_cutpoint}:${y_cutpoint}
 
 # ==== 5. 濾鏡邏輯判斷 ====
 
-# 設定倒帶濾鏡
+# 設定倒帶濾鏡 (前置逗號，避免串接時產生尾隨逗號)
 if [ "$reverse_gif" -eq 1 ]; then
-    reverse_filter="reverse,"
+    reverse_filter=",reverse"
 else
     reverse_filter=""
 fi
 
-# 設定補幀濾鏡 (Motion Interpolation)
-# 設計決策：僅在 gifspeed < 1 (慢動作) 時啟用。
-# 原因：minterpolate 運算成本極高。慢動作時補幀可避免卡頓 (幻燈片感)；
-# 原速或加速時，補幀不僅浪費時間，還可能產生不必要的殘影。
-is_slow_motion=$(awk -v s="$gifspeed" 'BEGIN {print (s < 1) ? 1 : 0}')
+# 設定幀率控制與補幀濾鏡 (比較有效輸入 FPS 與目標輸出 FPS)
+# 1. input_fps > target_fps (如 60fps 原速)：使用 fps 濾鏡降採樣至 target_fps
+# 2. gifspeed < 1 且 input_fps < target_fps (如 30fps @ 0.5x)：啟用 minterpolate 補幀至 target_fps
+# 3. 其餘情況 (如 30fps @ 1x 或 60fps @ 0.5x)：直接使用原生影格，不抽幀也不補幀
+fps_mode=$(awk -v infps="$input_fps" -v tfps="$target_fps" -v s="$gifspeed" 'BEGIN {
+    if (infps > tfps + 0.5) print "downsample";
+    else if (s < 1 && infps < tfps - 0.5) print "interpolate";
+    else print "native";
+}')
 
-if [ "$is_slow_motion" -eq 1 ]; then
-    echo "偵測到慢動作 ($gifspeed)，啟用高品質補幀 (MCI/AOBMC)..."
-    # fps=${frame} 強制輸出維持流暢的幀率，而非隨速度降低
-    minterpolate_filter="minterpolate=fps=${frame}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1,"
+fps_filter=""
+minterpolate_filter=""
+
+if [ "$fps_mode" = "downsample" ]; then
+    echo "偵測到高幀率輸入 (${input_fps} fps)，降採樣至 ${target_fps} fps 以優化畫質與體積..."
+    fps_filter=",fps=${target_fps}"
+    output_fps="$target_fps"
+elif [ "$fps_mode" = "interpolate" ]; then
+    echo "偵測到低幀率慢動作 (${input_fps} fps)，啟用高品質補幀至 ${target_fps} fps (MCI/AOBMC)..."
+    minterpolate_filter=",minterpolate=fps=${target_fps}:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1"
+    output_fps="$target_fps"
 else
-    minterpolate_filter=""
+    output_fps="$input_fps"
 fi
 
 # ==== 6. 核心函數定義 ====
@@ -101,14 +114,14 @@ fi
 #       Width = sqrt( (TargetMB * 8bit * 1024^2) / (Aspect * TotalFrames * BPP) )
 calculate_target_width() {
     size=$(awk -v z="$z_contants" -v gs="$gifspeed" -v target="$gif_size" \
-               -v wc="$w_cut" -v hc="$h_cut" -v fr="$frame" -v gl="$gif_length" \
+               -v wc="$w_cut" -v hc="$h_cut" -v ofps="$output_fps" -v gl="$gif_length" \
     'BEGIN {
         # 若加速播放 (>1)，畫面變動率高，WebP 壓縮率會下降，故增加 BPP 預估值
         bpp = (gs > 1) ? z * 1.15 : z;
         print "使用 BPP 係數: " bpp > "/dev/stderr";
 
-        # 計算總幀數與長寬比
-        total_frames = fr * gs * gl;
+        # 計算實際輸出總幀數與長寬比 (涵蓋慢動作補幀或高幀率降採樣後的真實幀數)
+        total_frames = ofps * gl;
         aspect = wc / hc;
 
         # 避免除以零的保護機制
@@ -122,10 +135,11 @@ calculate_target_width() {
 
         # 邊界檢查：計算結果不可超過原始裁切寬度
         if (calc_w > wc) {
-            print wc;
-        } else {
-            print calc_w;
+            calc_w = wc;
         }
+        # 對齊偶數寬度以符合 yuva420p 色度抽樣要求
+        if (calc_w % 2 != 0) calc_w -= 1;
+        print calc_w;
     }')
 
     echo "預估目標寬度: $size px"
@@ -135,28 +149,22 @@ calculate_target_width() {
 # 目的：執行 FFmpeg 轉檔指令。
 # 設計決策：
 # 1. 使用 yuva420p：確保在有損壓縮下仍能保留 Alpha 通道 (透明背景)。
-# 2. 濾鏡順序：Crop -> [Minterpolate] -> [Reverse] -> SetPTS -> Scale。
-#    確保先裁切掉不要的區域再進行補幀運算，提升效率。
+# 2. 濾鏡順序：Crop -> [FPS] -> Scale -> [Reverse] -> [Minterpolate]。
+#    確保先裁切、抽幀並縮放至目標解析度後，再執行倒帶緩衝與光流補幀，大幅降低記憶體與 CPU 耗用。
 create_webp() {
     outputName="./${today}_${size}_${gifspeed}_${gif_length}s_${Remark}.webp"
 
-    # 計算實際輸出的 FPS
-    final_fps=$(awk -v f="$frame" -v s="$gifspeed" 'BEGIN {print f * s}')
-
-    # 組合 Scale 濾鏡 (包含倒帶)
-    scaleParameter="${size}:-1:flags=lanczos,${reverse_filter}"
-
     echo "----------------------------------------"
-    echo "開始轉換... (寬度: $size, FPS: $final_fps)"
+    echo "開始轉換... (寬度: $size, 輸入 FPS: $input_fps, 輸出 FPS: $output_fps)"
     echo "----------------------------------------"
 
-    nice -n -15 ffmpeg -y -f image2 -framerate "$final_fps" \
+    ffmpeg -y -framerate "$input_fps" \
         -i "${source_pattern}" \
-        -vf "crop=${cutParameter},${minterpolate_filter}setpts=PTS*${correction},scale=${scaleParameter}" \
+        -vf "crop=${cutParameter}${fps_filter},scale=${size}:-2:flags=lanczos${reverse_filter}${minterpolate_filter}" \
         -lossless 0 -q:v ${quality_val} \
         -pix_fmt yuva420p \
         -loop 0 \
-        -hide_banner -loglevel warning \
+        -hide_banner -loglevel warning -stats \
         "${outputName}"
 
     echo "轉換結束。"
@@ -231,6 +239,7 @@ if [ "$needs_retry" -eq 1 ]; then
 
         # 邊界檢查
         if (new_w > max_w) new_w = max_w;
+        if (new_w % 2 != 0) new_w -= 1;
         print new_w;
     }')
 
@@ -241,8 +250,8 @@ if [ "$needs_retry" -eq 1 ]; then
     echo "最終大小: ${final_size} MB"
 else
     # 輸出不重試的原因，讓使用者安心
-    check_reason=$(awk -v act="$actual_size" -v cw="$size" -v mw="$w_cut" \
-                   'BEGIN { print (act < 7.0 && cw >= mw) ? 1 : 0 }')
+    check_reason=$(awk -v act="$actual_size" -v target="$gif_size" -v cw="$size" -v mw="$w_cut" \
+                   'BEGIN { print (act < target * 0.90 && cw >= mw) ? 1 : 0 }')
 
     if [ "$check_reason" -eq 1 ]; then
         echo "雖檔案較小 ($actual_size MB)，但解析度已達來源上限 ($w_cut px)，不再重試。"
